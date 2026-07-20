@@ -20,6 +20,8 @@ export type Profile = {
   created_at: string;
 };
 
+export type Subject = "Maths" | "Verbal Reasoning" | "Non-Verbal Reasoning" | "English";
+
 export type Student = {
   id: string;
   parent_id: string;
@@ -29,12 +31,14 @@ export type Student = {
   diagnostic_completed: boolean;
   maths_level: number;
   vr_level: number;
+  nvr_level: number;
+  english_level: number;
   created_at: string;
 };
 
 export type Topic = {
   id: string;
-  subject: "Maths" | "Verbal Reasoning";
+  subject: Subject;
   name: string;
   description: string;
   order_index: number;
@@ -43,7 +47,7 @@ export type Topic = {
 export type Question = {
   id: string;
   topic_id: string;
-  subject: "Maths" | "Verbal Reasoning";
+  subject: Subject;
   difficulty: number;
   question_text: string;
   question_type: "multiple_choice" | "text_input";

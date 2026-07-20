@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import { supabase, type Student, type TopicProgress, type Subscription } from "../lib/supabase";
+import { SUBJECTS, THEME_CLASSES, subjectLevel } from "../lib/subjects";
 import {
   Plus, LogOut, GraduationCap, TrendingUp, BookOpen, CheckCircle2,
-  Clock, ChevronRight, Sparkles, X, Calculator, Brain, Loader2, CreditCard,
+  Clock, ChevronRight, Sparkles, X, Loader2, CreditCard,
 } from "lucide-react";
 
 type StudentWithProgress = Student & {
@@ -208,15 +209,6 @@ function StudentCard({
   const totalCorrect = student.progress.reduce((sum, p) => sum + p.correct_attempts, 0);
   const accuracy = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
 
-  const mathsProgress = student.progress.filter((p) => p.subject === "Maths");
-  const vrProgress = student.progress.filter((p) => p.subject === "Verbal Reasoning");
-  const mathsMastery = mathsProgress.length > 0
-    ? Math.round(mathsProgress.reduce((s, p) => s + p.mastery_level, 0) / mathsProgress.length)
-    : 0;
-  const vrMastery = vrProgress.length > 0
-    ? Math.round(vrProgress.reduce((s, p) => s + p.mastery_level, 0) / vrProgress.length)
-    : 0;
-
   return (
     <button
       onClick={onClick}
@@ -242,22 +234,23 @@ function StudentCard({
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="bg-brand-50 rounded-xl px-4 py-3">
-            <div className="flex items-center gap-2 mb-1">
-              <Calculator className="w-4 h-4 text-brand-600" />
-              <span className="text-xs font-medium text-brand-700">Maths</span>
-            </div>
-            <p className="text-2xl font-bold text-brand-900">{mathsMastery}%</p>
-            <p className="text-xs text-brand-500">Level {student.maths_level}</p>
-          </div>
-          <div className="bg-mint-50 rounded-xl px-4 py-3">
-            <div className="flex items-center gap-2 mb-1">
-              <Brain className="w-4 h-4 text-mint-600" />
-              <span className="text-xs font-medium text-mint-700">Verbal Reasoning</span>
-            </div>
-            <p className="text-2xl font-bold text-mint-900">{vrMastery}%</p>
-            <p className="text-xs text-mint-500">Level {student.vr_level}</p>
-          </div>
+          {SUBJECTS.map((s) => {
+            const subjectProgress = student.progress.filter((p) => p.subject === s.subject);
+            const mastery = subjectProgress.length > 0
+              ? Math.round(subjectProgress.reduce((sum, p) => sum + p.mastery_level, 0) / subjectProgress.length)
+              : 0;
+            const theme = THEME_CLASSES[s.theme];
+            return (
+              <div key={s.subject} className={`${theme.iconBg} rounded-xl px-4 py-3`}>
+                <div className="flex items-center gap-2 mb-1">
+                  <s.icon className={`w-4 h-4 ${theme.iconText}`} />
+                  <span className={`text-xs font-medium ${theme.badgeText}`}>{s.label}</span>
+                </div>
+                <p className={`text-2xl font-bold ${theme.iconText}`}>{mastery}%</p>
+                <p className={`text-xs ${theme.badgeText}`}>Level {subjectLevel(student, s.subject)}</p>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -413,7 +406,7 @@ function SubscriptionModal({
             <span className="text-slate-500">/month</span>
           </div>
           <p className="text-sm text-slate-600 mb-4">
-            Full access to all Maths and Verbal Reasoning practice, adaptive difficulty, and progress tracking.
+            Full access to all subject practice, adaptive difficulty, and progress tracking.
           </p>
           <ul className="space-y-2 text-sm text-slate-700">
             <li className="flex items-center gap-2">
