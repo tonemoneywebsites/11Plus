@@ -46,7 +46,7 @@ export default function AuthScreen() {
             Give your child the edge they need for the 11+.
           </h1>
           <p className="text-brand-100 text-lg leading-relaxed max-w-md">
-            Adaptive practice in Maths, English, Verbal Reasoning and Non-Verbal Reasoning. Diagnostic assessments,
+            Adaptive practice in Maths and Verbal Reasoning. Diagnostic assessments,
             progressive hints, and real progress tracking — all in one place.
           </p>
         </div>

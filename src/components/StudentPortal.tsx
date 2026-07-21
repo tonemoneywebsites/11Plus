@@ -1,12 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase, type Student, type Question, type Topic, type Attempt, type Subject } from "../lib/supabase";
-import { SUBJECTS, THEME_CLASSES, getSubjectConfig, subjectLevel, type SubjectTheme } from "../lib/subjects";
+import { supabase, type Student, type Question, type Topic, type Attempt } from "../lib/supabase";
 import {
-  ArrowLeft, CheckCircle2, XCircle, Lightbulb,
+  ArrowLeft, Calculator, Brain, CheckCircle2, XCircle, Lightbulb,
   ChevronRight, Loader2, Sparkles, Trophy, Target, TrendingUp, BookOpen,
 } from "lucide-react";
-
-const DIAGNOSTIC_QUESTIONS_PER_SUBJECT = 5;
 
 type View = "menu" | "diagnostic" | "practice" | "progress";
 
@@ -135,12 +132,14 @@ function StudentMenu({
               <p className="text-brand-100 text-xs">Accuracy</p>
               <p className="text-2xl font-bold">{accuracy}%</p>
             </div>
-            {SUBJECTS.map((s) => (
-              <div key={s.subject}>
-                <p className="text-brand-100 text-xs">{s.label} level</p>
-                <p className="text-2xl font-bold">{subjectLevel(student, s.subject)}/10</p>
-              </div>
-            ))}
+            <div>
+              <p className="text-brand-100 text-xs">Maths level</p>
+              <p className="text-2xl font-bold">{student.maths_level}/10</p>
+            </div>
+            <div>
+              <p className="text-brand-100 text-xs">VR level</p>
+              <p className="text-2xl font-bold">{student.vr_level}/10</p>
+            </div>
           </div>
         </div>
       </div>
@@ -157,7 +156,7 @@ function StudentMenu({
             <div className="flex-1">
               <h3 className="font-bold text-white text-lg">Start diagnostic assessment</h3>
               <p className="text-amber-50 text-sm">
-                Let's find your starting level with a quick assessment across all subjects.
+                Let's find your starting level with a quick assessment across both subjects.
               </p>
             </div>
             <ChevronRight className="w-6 h-6 text-white group-hover:translate-x-1 transition-transform" />
@@ -218,19 +217,23 @@ function Diagnostic({
 
   useEffect(() => {
     (async () => {
-      // Fetch questions spanning difficulties 1-10 for each subject
-      const results = await Promise.all(
-        SUBJECTS.map((s) =>
-          supabase.from("questions").select("*").eq("subject", s.subject).order("difficulty").limit(20)
-        )
-      );
-      const selected = results.flatMap(
-        (res) =>
-          ((res.data as Question[]) || [])
-            .filter((_, i) => i % 2 === 0)
-            .slice(0, DIAGNOSTIC_QUESTIONS_PER_SUBJECT)
-      );
-      setQuestions(selected);
+      // Fetch 10 questions: 5 Maths + 5 VR, spanning difficulties 1-10
+      const { data: mathsQs } = await supabase
+        .from("questions")
+        .select("*")
+        .eq("subject", "Maths")
+        .order("difficulty")
+        .limit(20);
+      const { data: vrQs } = await supabase
+        .from("questions")
+        .select("*")
+        .eq("subject", "Verbal Reasoning")
+        .order("difficulty")
+        .limit(20);
+
+      const maths = (mathsQs as Question[] || []).filter((_, i) => i % 2 === 0).slice(0, 5);
+      const vr = (vrQs as Question[] || []).filter((_, i) => i % 2 === 0).slice(0, 5);
+      setQuestions([...maths, ...vr]);
       setLoading(false);
     })();
   }, []);
@@ -276,16 +279,16 @@ function Diagnostic({
   }
 
   async function finishDiagnostic() {
-    // Calculate starting levels based on diagnostic performance.
+    // Calculate starting levels based on diagnostic performance
+    const mathsAnswers = answers.filter((a) => a.question.subject === "Maths");
+    const vrAnswers = answers.filter((a) => a.question.subject === "Verbal Reasoning");
+
+    const mathsCorrect = mathsAnswers.filter((a) => a.correct).length;
+    const vrCorrect = vrAnswers.filter((a) => a.correct).length;
+
     // Base level on accuracy: 0-1 correct = level 2, 2 = level 4, 3 = level 5, 4 = level 7, 5 = level 8
-    const levelUpdates: Record<string, number> = {};
-    for (const s of SUBJECTS) {
-      const subjectCorrect = answers.filter((a) => a.question.subject === s.subject && a.correct).length;
-      levelUpdates[s.levelField] = Math.max(
-        1,
-        Math.min(10, Math.round((subjectCorrect / DIAGNOSTIC_QUESTIONS_PER_SUBJECT) * 8) + 1)
-      );
-    }
+    const mathsLevel = Math.max(1, Math.min(10, Math.round((mathsCorrect / 5) * 8) + 1));
+    const vrLevel = Math.max(1, Math.min(10, Math.round((vrCorrect / 5) * 8) + 1));
 
     // Update topic progress
     const topicStats: Record<string, { total: number; correct: number; subject: string; topicId: string }> = {};
@@ -334,7 +337,8 @@ function Diagnostic({
       .from("students")
       .update({
         diagnostic_completed: true,
-        ...levelUpdates,
+        maths_level: mathsLevel,
+        vr_level: vrLevel,
       })
       .eq("id", student.id);
 
@@ -375,6 +379,7 @@ function Diagnostic({
         hintsShown={hintsShown}
         onAnswer={handleAnswer}
         onShowHint={() => setHintsShown((h) => Math.min(h + 1, 3))}
+        subjectIcon={current.subject === "Maths" ? <Calculator className="w-4 h-4" /> : <Brain className="w-4 h-4" />}
       />
 
       {showResult && (
@@ -402,7 +407,7 @@ function PracticePicker({
   progress: Record<string, { total: number; correct: number; mastery: number }>;
   onBack: () => void;
 }) {
-  const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
+  const [selectedSubject, setSelectedSubject] = useState<"Maths" | "Verbal Reasoning" | null>(null);
   const [activeTopic, setActiveTopic] = useState<Topic | null>(null);
 
   if (activeTopic) {
@@ -410,7 +415,7 @@ function PracticePicker({
       <PracticeSession
         student={student}
         topic={activeTopic}
-        level={subjectLevel(student, activeTopic.subject)}
+        level={activeTopic.subject === "Maths" ? student.maths_level : student.vr_level}
         onExit={() => {
           setActiveTopic(null);
           onBack();
@@ -421,10 +426,8 @@ function PracticePicker({
   }
 
   if (selectedSubject) {
-    const config = getSubjectConfig(selectedSubject);
-    const theme = THEME_CLASSES[config.theme];
     const subjectTopics = topics.filter((t) => t.subject === selectedSubject);
-    const level = subjectLevel(student, selectedSubject);
+    const level = selectedSubject === "Maths" ? student.maths_level : student.vr_level;
     return (
       <div className="animate-fade-in">
         <button
@@ -436,7 +439,11 @@ function PracticePicker({
         </button>
 
         <div className="flex items-center gap-3 mb-6">
-          <config.icon className={`w-7 h-7 ${theme.iconText}`} />
+          {selectedSubject === "Maths" ? (
+            <Calculator className="w-7 h-7 text-brand-600" />
+          ) : (
+            <Brain className="w-7 h-7 text-mint-600" />
+          )}
           <div>
             <h2 className="font-serif text-2xl font-bold text-slate-900">{selectedSubject}</h2>
             <p className="text-sm text-slate-500">
@@ -497,27 +504,37 @@ function PracticePicker({
       <p className="text-slate-500 mb-6">Pick a subject to start practising. Difficulty adapts to your level!</p>
 
       <div className="grid sm:grid-cols-2 gap-4">
-        {SUBJECTS.map((s) => {
-          const theme = THEME_CLASSES[s.theme];
-          return (
-            <button
-              key={s.subject}
-              onClick={() => setSelectedSubject(s.subject)}
-              className={`bg-white rounded-2xl border border-slate-200 p-6 text-left hover:shadow-lg ${theme.hoverBorder} transition-all group`}
-            >
-              <div className={`w-14 h-14 ${theme.iconBg} rounded-2xl flex items-center justify-center mb-4`}>
-                <s.icon className={`w-7 h-7 ${theme.iconText}`} />
-              </div>
-              <h3 className="font-serif text-xl font-bold text-slate-900 mb-1">{s.label}</h3>
-              <p className="text-sm text-slate-500 mb-3">{s.description}</p>
-              <div className="flex items-center gap-2 text-sm">
-                <span className={`${theme.badgeBg} ${theme.badgeText} px-2.5 py-1 rounded-lg font-medium`}>
-                  Level {subjectLevel(student, s.subject)}/10
-                </span>
-              </div>
-            </button>
-          );
-        })}
+        <button
+          onClick={() => setSelectedSubject("Maths")}
+          className="bg-white rounded-2xl border border-slate-200 p-6 text-left hover:shadow-lg hover:border-brand-300 transition-all group"
+        >
+          <div className="w-14 h-14 bg-brand-50 rounded-2xl flex items-center justify-center mb-4">
+            <Calculator className="w-7 h-7 text-brand-600" />
+          </div>
+          <h3 className="font-serif text-xl font-bold text-slate-900 mb-1">Maths</h3>
+          <p className="text-sm text-slate-500 mb-3">Number, fractions, algebra, geometry and more.</p>
+          <div className="flex items-center gap-2 text-sm">
+            <span className="bg-brand-50 text-brand-700 px-2.5 py-1 rounded-lg font-medium">
+              Level {student.maths_level}/10
+            </span>
+          </div>
+        </button>
+
+        <button
+          onClick={() => setSelectedSubject("Verbal Reasoning")}
+          className="bg-white rounded-2xl border border-slate-200 p-6 text-left hover:shadow-lg hover:border-mint-300 transition-all group"
+        >
+          <div className="w-14 h-14 bg-mint-50 rounded-2xl flex items-center justify-center mb-4">
+            <Brain className="w-7 h-7 text-mint-600" />
+          </div>
+          <h3 className="font-serif text-xl font-bold text-slate-900 mb-1">Verbal Reasoning</h3>
+          <p className="text-sm text-slate-500 mb-3">Codes, sequences, word relationships and logic.</p>
+          <div className="flex items-center gap-2 text-sm">
+            <span className="bg-mint-50 text-mint-700 px-2.5 py-1 rounded-lg font-medium">
+              Level {student.vr_level}/10
+            </span>
+          </div>
+        </button>
       </div>
     </div>
   );
@@ -649,7 +666,7 @@ function PracticeSession({
       setStartTime(Date.now());
     } else {
       // Update student's level for this subject
-      const field = getSubjectConfig(topic.subject).levelField;
+      const field = topic.subject === "Maths" ? "maths_level" : "vr_level";
       await supabase.from("students").update({ [field]: adaptiveLevel }).eq("id", student.id);
       setFinished(true);
     }
@@ -738,6 +755,7 @@ function PracticeSession({
         hintsShown={hintsShown}
         onAnswer={handleAnswer}
         onShowHint={() => setHintsShown((h) => Math.min(h + 1, 3))}
+        subjectIcon={topic.subject === "Maths" ? <Calculator className="w-4 h-4" /> : <Brain className="w-4 h-4" />}
       />
 
       {showResult && (
@@ -769,6 +787,9 @@ function ProgressView({
   const totalCorrect = Object.values(progress).reduce((s, p) => s + p.correct, 0);
   const accuracy = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
 
+  const mathsTopics = topics.filter((t) => t.subject === "Maths");
+  const vrTopics = topics.filter((t) => t.subject === "Verbal Reasoning");
+
   return (
     <div className="animate-fade-in">
       <button
@@ -799,15 +820,8 @@ function ProgressView({
         </div>
       </div>
 
-      {SUBJECTS.map((s) => (
-        <ProgressSection
-          key={s.subject}
-          title={s.label}
-          topics={topics.filter((t) => t.subject === s.subject)}
-          progress={progress}
-          theme={s.theme}
-        />
-      ))}
+      <ProgressSection title="Maths" topics={mathsTopics} progress={progress} color="brand" />
+      <ProgressSection title="Verbal Reasoning" topics={vrTopics} progress={progress} color="mint" />
 
       {recentAttempts.length > 0 && (
         <div className="mt-8">
@@ -847,14 +861,18 @@ function ProgressSection({
   title,
   topics,
   progress,
-  theme,
+  color,
 }: {
   title: string;
   topics: Topic[];
   progress: Record<string, { total: number; correct: number; mastery: number }>;
-  theme: SubjectTheme;
+  color: "brand" | "mint";
 }) {
-  const c = THEME_CLASSES[theme];
+  const colorMap = {
+    brand: { bg: "bg-brand-50", text: "text-brand-700", bar: "bg-brand-500" },
+    mint: { bg: "bg-mint-50", text: "text-mint-700", bar: "bg-mint-500" },
+  };
+  const c = colorMap[color];
 
   return (
     <div className="mb-6">
@@ -867,13 +885,13 @@ function ProgressSection({
             <div key={topic.id}>
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-sm font-medium text-slate-700">{topic.name}</span>
-                <span className={`text-xs font-medium ${c.badgeText}`}>
+                <span className={`text-xs font-medium ${c.text}`}>
                   {mastery}% {prog ? `(${prog.total} done)` : ""}
                 </span>
               </div>
               <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                 <div
-                  className={`h-full ${c.barBg} rounded-full transition-all duration-500`}
+                  className={`h-full ${c.bar} rounded-full transition-all duration-500`}
                   style={{ width: `${mastery}%` }}
                 />
               </div>
@@ -893,6 +911,7 @@ function QuestionCard({
   hintsShown,
   onAnswer,
   onShowHint,
+  subjectIcon,
 }: {
   question: Question;
   selectedAnswer: string | null;
@@ -900,17 +919,18 @@ function QuestionCard({
   hintsShown: number;
   onAnswer: (answer: string) => void;
   onShowHint: () => void;
+  subjectIcon: React.ReactNode;
 }) {
   const isCorrect = selectedAnswer === question.correct_answer;
   const allHintsShown = hintsShown >= 3;
-  const subjectConfig = getSubjectConfig(question.subject);
-  const theme = THEME_CLASSES[subjectConfig.theme];
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-6 lg:p-8 animate-pop">
       <div className="flex items-center gap-2 mb-4">
-        <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg ${theme.badgeBg} ${theme.badgeText}`}>
-          <subjectConfig.icon className="w-4 h-4" />
+        <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg ${
+          question.subject === "Maths" ? "bg-brand-50 text-brand-700" : "bg-mint-50 text-mint-700"
+        }`}>
+          {subjectIcon}
           {question.subject}
         </span>
         <span className="text-xs text-slate-400">Difficulty {question.difficulty}/10</span>
