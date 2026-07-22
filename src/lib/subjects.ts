@@ -1,6 +1,8 @@
 import { Calculator, Brain, Shapes, BookText, type LucideIcon } from "lucide-react";
 import type { Student, Subject } from "./supabase";
+
 export type SubjectTheme = "brand" | "mint" | "purple" | "orange";
+
 export type SubjectConfig = {
   subject: Subject;
   label: string;
@@ -9,6 +11,7 @@ export type SubjectConfig = {
   levelField: "maths_level" | "vr_level" | "nvr_level" | "english_level";
   theme: SubjectTheme;
 };
+
 export const SUBJECTS: SubjectConfig[] = [
   {
     subject: "Maths",
@@ -43,20 +46,51 @@ export const SUBJECTS: SubjectConfig[] = [
     theme: "orange",
   },
 ];
+
 export function getSubjectConfig(subject: Subject): SubjectConfig {
   const config = SUBJECTS.find((s) => s.subject === subject);
   if (!config) throw new Error(`Unknown subject: ${subject}`);
   return config;
 }
+
 export function subjectLevel(student: Student, subject: Subject): number {
   return student[getSubjectConfig(subject).levelField];
 }
+
 export const THEME_CLASSES: Record<
   SubjectTheme,
   { iconBg: string; iconText: string; badgeBg: string; badgeText: string; hoverBorder: string; barBg: string }
 > = {
-  brand: { iconBg: "bg-brand-50", iconText: "text-brand-600", badgeBg: "bg-brand-50", badgeText: "text-brand-700", hoverBorder: "hover:border-brand-300", barBg: "bg-brand-500" },
-  mint: { iconBg: "bg-mint-50", iconText: "text-mint-600", badgeBg: "bg-mint-50", badgeText: "text-mint-700", hoverBorder: "hover:border-mint-300", barBg: "bg-mint-500" },
-  purple: { iconBg: "bg-purple-50", iconText: "text-purple-600", badgeBg: "bg-purple-50", badgeText: "text-purple-700", hoverBorder: "hover:border-purple-300", barBg: "bg-purple-500" },
-  orange: { iconBg: "bg-orange-50", iconText: "text-orange-600", badgeBg: "bg-orange-50", badgeText: "text-orange-700", hoverBorder: "hover:border-orange-300", barBg: "bg-orange-500" },
+  brand: {
+    iconBg: "bg-brand-50",
+    iconText: "text-brand-600",
+    badgeBg: "bg-brand-50",
+    badgeText: "text-brand-700",
+    hoverBorder: "hover:border-brand-300",
+    barBg: "bg-brand-500",
+  },
+  mint: {
+    iconBg: "bg-mint-50",
+    iconText: "text-mint-600",
+    badgeBg: "bg-mint-50",
+    badgeText: "text-mint-700",
+    hoverBorder: "hover:border-mint-300",
+    barBg: "bg-mint-500",
+  },
+  purple: {
+    iconBg: "bg-purple-50",
+    iconText: "text-purple-600",
+    badgeBg: "bg-purple-50",
+    badgeText: "text-purple-700",
+    hoverBorder: "hover:border-purple-300",
+    barBg: "bg-purple-500",
+  },
+  orange: {
+    iconBg: "bg-orange-50",
+    iconText: "text-orange-600",
+    badgeBg: "bg-orange-50",
+    badgeText: "text-orange-700",
+    hoverBorder: "hover:border-orange-300",
+    barBg: "bg-orange-500",
+  },
 };
