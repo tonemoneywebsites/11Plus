@@ -567,15 +567,11 @@ function PracticeSession({
 
   useEffect(() => {
     (async () => {
-      const qs = await fetchQuestions(level);
+      const qs = await fetchQuestions(adaptiveLevel);
       setQuestions(qs);
       setLoading(false);
     })();
-    // Only fetch once per session (on mount / topic change). Adaptive difficulty
-    // should affect the *next* session's starting level, not reshuffle the
-    // in-progress question set out from under the current index.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchQuestions]);
+  }, [fetchQuestions, adaptiveLevel]);
 
   const current = questions[currentIdx];
 
